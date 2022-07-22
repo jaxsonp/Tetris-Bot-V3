@@ -10,9 +10,10 @@
 */
 
 
-const w = 10
-const h = 22
-const scl = 30
+const w = 10;
+const h = 22;
+const scl = 30;
+const autodrop_piece = true;
 
 //temp
 const drop_speed = 20;
@@ -23,22 +24,37 @@ const piece_colors = [
   [230, 230, 50, 255],
   [230, 50, 230, 255],
   [50, 230, 50, 255],
-  [230, 50, 50, 255],
-  [50, 50, 230, 255],
+  [230, 50, 60, 255],
+  [50, 70, 230, 255],
   [230, 125, 50, 255],
-]
+];
+
+const piece_letters = [
+  "",
+  "I",
+  "O",
+  "T",
+  "S",
+  "Z",
+  "J",
+  "L"
+];
 
 let dropping_piece = {
   x: 0,
   y: 0,
   type: 1,
   rotation: 0,
-}
+};
 
 
 let grid = []
 let queue = []
 let t = 0;
+let held_piece = 0;
+let game_over = false;
+let lines_cleared = 0;
+let score = 0;
 
 
 
@@ -53,13 +69,27 @@ function setup() {
       grid[y][x] = 0
     }
   }
+  
+  // initializing queue
+  while (queue.length < 7) {
+    new_piece = floor(random(1, 8))
 
-  spawn_piece(floor(random(1, 8)))
+    for (let i = 0; i < queue.length; i++) {
+      if (queue[i] == new_piece) {
+        new_piece = 0
+      }
+    }
+    if (new_piece != 0) {
+      queue.push(new_piece)
+    }
+  }
+
+  spawn_piece(queue.pop());
 }
 
 function draw() {
 
-  if (queue.length <= 1) {
+  if (queue.length <= 6) {
     new_bag = []
     while (new_bag.length < 7) {
       new_piece = floor(random(1, 8))
@@ -76,7 +106,9 @@ function draw() {
     queue = new_bag.concat(queue)
   }
 
-  if (t % drop_speed == 0) {
+
+  // autodropping
+  if (t % drop_speed == 0 && autodrop_piece && !game_over) {
     drop_piece();
   }
 
@@ -96,14 +128,14 @@ function draw() {
   rect(0, 0, w * scl, h * scl);
 
   // gridlines
-  stroke(50);
+  /*stroke(50);
   strokeWeight(1);
   for (let y = 0; y < h; y++) {
     line(0, y * scl, w * scl, y * scl)
   }
   for (let x = 0; x < w; x++) {
     line(x * scl, 0, x * scl, h * scl)
-  }
+  }*/
   
   noStroke();
   for (let y = 0; y < h; y++) {
@@ -112,20 +144,78 @@ function draw() {
       let c = grid[y][x] 
       if (c >= 1) {
         
-        fill(piece_colors[c])
-        rect(x * scl, y * scl, scl, scl)
+        fill(piece_colors[c]);
+        rect(x * scl, y * scl, scl, scl);
       } else if (c > 0) {
 
         fill(piece_colors[c * 10])
-        rect(x * scl, y * scl, scl, scl)
+        rect(x * scl, y * scl, scl, scl);
       }
     }
   }
-
-  fill(255);
-  ellipse(dropping_piece.x * scl, dropping_piece.y * scl, scl / 2, scl / 2)
+  
+  //draw piece center point
+  /*fill(255);
+  ellipse(dropping_piece.x * scl, dropping_piece.y * scl, scl / 2, scl / 2);*/
 
   pop();
+
+  noStroke();
+  fill(50);
+  rect(scl, 0, scl * w, scl);// top bar
+
+  //hold
+  fill(100);
+  rect(scl * (w + 2.5), scl * 1.5, scl * 2, scl * 2, scl / 3);
+
+  fill(piece_colors[held_piece]);
+  stroke(piece_colors[held_piece]);
+  strokeWeight(3);
+  textSize(scl * 1.5);
+  textAlign(CENTER, CENTER);
+  text(piece_letters[held_piece], scl * (w + 3.5), scl * 2.625);
+  fill(240);
+  noStroke();
+  textAlign(CENTER, BOTTOM);
+  textSize(scl * 0.75);
+  text("Held:", scl * (w + 3.5), scl * 1.5)
+
+  // queue
+  textSize(scl * 0.6);
+  text("Next:", scl * (w + 3.5), scl * 5)
+  for (let i = 0; i < 6; i++) {
+    fill(100);
+    noStroke();
+    rect(scl * (w + 2.75), scl * (5.1 + i * 1.75), scl * 1.5, scl * 1.5, scl / 4);
+    fill(piece_colors[queue[queue.length - 1 - i]]);
+    stroke(piece_colors[queue[queue.length - 1 - i]]);
+    strokeWeight(scl / 15);
+    textSize(scl * 1.25);
+    textAlign(CENTER, CENTER);
+    text(piece_letters[queue[queue.length - 1 - i]], scl * (w + 3.5), scl * (5.9 + i * 1.75) );
+  }
+
+  // scores
+  fill(100);
+  noStroke();
+  rect(scl * (w + 1.5), scl * 17, scl * 4, scl, scl / 4);
+  rect(scl * (w + 1.5), scl * 18.5, scl * 4, scl, scl / 4);
+  textSize(scl * 0.7);
+  fill(240);
+  text("Lines: " + String(lines_cleared), scl * (w + 3.5), scl * 17.55)
+  text("Score: " + String(score), scl * (w + 3.5), scl * 19.05)
+
+  // gameover text
+  if (game_over) {
+    fill(240);
+    stroke(240, 50, 60);
+    strokeWeight((height + width) / 200)
+    rect(width / 4, (height / 2) - (height / 16), width / 2, height / 8, (width + height) / 20);
+    fill(240, 50, 60);
+    noStroke();
+    textSize((width + height) / 30)
+    text("Game over", width / 2, height / 2);
+  }
 
   t += 1;
 }
@@ -134,7 +224,8 @@ function draw() {
 
 
 function spawn_piece(piece) {
-  print('Spawning: ' + String(piece));
+  //print('Spawning: ' + String(piece));
+  piece = 
   dropping_piece.type = piece;
   dropping_piece.rotation = 0;
   switch (piece) {
@@ -151,7 +242,7 @@ function spawn_piece(piece) {
       dropping_piece.y = 1.5;
       break;
   }
-  return;
+  return true;
 }
 
 function rotate_piece(direction="right") {
@@ -215,9 +306,9 @@ function harddrop_piece () {
 function drop_piece() {
   
   dropping_piece.y += 1;
+  let consecutive_lines_cleared = 0;
   
   if (!validate_dropping_piece()) {
-    print('piece landed')
     dropping_piece.y -= 1;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -250,30 +341,48 @@ function drop_piece() {
         for (let x = 0; x < w; x++) {
           new_rows[new_rows.length - 1][x] = 0;
         }
+        lines_cleared += 1;
+        consecutive_lines_cleared += 1;
       } else {
-        
+
         grid.push(old_grid[y]);
       }
 
     }
     grid = new_rows.concat(grid);
 
-
-    /*new_rows = []
-    for (let i = 0; i < rows_to_add; i++) {
-      new_rows[i] = []
-      for (let x = 0; x < w; x++) {
-        new_rows[i][x] = 0;
-      }
+    switch (consecutive_lines_cleared) {
+      case 1:
+        score += 1;
+        break;
+      case 2:
+        score += 3;
+        break;
+      case 3:
+        score += 5;
+        break;
+      case 4:
+        score += 8;
+        break;
+      default:
+        break;
     }
-    print(grid)
-    grid = new_rows.concat(grid)
-    print(grid)*/
-    
+    spawn_piece(queue.pop());
 
-
-    spawn_piece(queue[queue.length - 1]);
-    queue.pop();
+    let above_ceiling = false;
+    for (let y = 0; y < 2; y++) {
+      for (let x = 0; x < w; x++) {
+        if (grid[y][x] >= 1) {
+          above_ceiling = true;
+          break;
+        }
+      }
+      if (above_ceiling) break;
+    }
+    if (above_ceiling) {
+      game_over = true;
+      print("Game over")
+    }
     return true;
   }
   return false;
@@ -490,26 +599,43 @@ function validate_dropping_piece () {
   return true
 }
 
+function hold () {
+
+  piece = held_piece;
+  held_piece = dropping_piece.type;
+  if (piece > 0) {
+    spawn_piece(piece);
+  } else {
+    spawn_piece(queue.pop());
+  }
+  return true;
+}
+
 
 function keyPressed () {
   //print (keyCode)
-  switch (keyCode) {
-    case 16:// shift
-      harddrop_piece();
-      break
-    case 37:// <-
-      shift_piece("left");
-      break;
-    case 38:// ^
-      rotate_piece("right");
-      break;
-    case 39: // ->
-      shift_piece("right");
-      break;
-    case 40:// v
-      drop_piece();
-      break;
-    default:
-      break;
+  if (!game_over) {
+    switch (keyCode) {
+      case 16:// shift
+        hold();
+        break
+      case 32:// space
+        harddrop_piece();
+        break
+      case 37:// <-
+        shift_piece("left");
+        break;
+      case 38:// ^
+        rotate_piece("right");
+        break;
+      case 39: // ->
+        shift_piece("right");
+        break;
+      case 40:// v
+        drop_piece();
+        break;
+      default:
+        break;
+    }
   }
 }
