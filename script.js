@@ -12,7 +12,10 @@
 
 const w = 10
 const h = 22
-const scl = 25
+const scl = 30
+
+//temp
+const drop_speed = 20;
 
 const piece_colors = [
   [0, 0, 0, 255],
@@ -35,12 +38,14 @@ let dropping_piece = {
 
 let grid = []
 let queue = []
+let t = 0;
 
 
 
 function setup() {
   createCanvas((w + 6) * scl, (h + 0) * scl);
   colorMode(RGB, 255)
+  frameRate(60);
 
   for (let y = 0; y < h; y++) {
     grid[y] = []
@@ -50,10 +55,6 @@ function setup() {
   }
 
   spawn_piece(floor(random(1, 8)))
-  queue.push(floor(random(1, 8)))
-  while (queue[0] == dropping_piece.type) {
-    queue[0] = floor(random(1, 8))
-  }
 }
 
 function draw() {
@@ -72,9 +73,12 @@ function draw() {
         new_bag.push(new_piece)
       }
     }
-    queue = queue.concat(new_bag)
+    queue = new_bag.concat(queue)
   }
-  print(queue)
+
+  if (t % drop_speed == 0) {
+    drop_piece();
+  }
 
 
   validate_dropping_piece()
@@ -91,14 +95,15 @@ function draw() {
   fill(70);
   rect(0, 0, w * scl, h * scl);
 
-  /*stroke(65);
+  // gridlines
+  stroke(50);
   strokeWeight(1);
   for (let y = 0; y < h; y++) {
     line(0, y * scl, w * scl, y * scl)
   }
   for (let x = 0; x < w; x++) {
     line(x * scl, 0, x * scl, h * scl)
-  }*/
+  }
   
   noStroke();
   for (let y = 0; y < h; y++) {
@@ -121,13 +126,15 @@ function draw() {
   ellipse(dropping_piece.x * scl, dropping_piece.y * scl, scl / 2, scl / 2)
 
   pop();
+
+  t += 1;
 }
 
 
 
 
 function spawn_piece(piece) {
-
+  print('Spawning: ' + String(piece));
   dropping_piece.type = piece;
   dropping_piece.rotation = 0;
   switch (piece) {
@@ -200,10 +207,76 @@ function shift_piece(direction) {
   }
 }
 
+function harddrop_piece () {
+  while(!drop_piece()){ }
+  return true;
+}
+
 function drop_piece() {
+  
   dropping_piece.y += 1;
-  validate_dropping_piece();
-  return;
+  
+  if (!validate_dropping_piece()) {
+    print('piece landed')
+    dropping_piece.y -= 1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        
+        // placing dropped piece
+        if (grid[y][x] < 1 && grid[y][x] > 0) {
+          grid[y][x] = grid[y][x] * 10;
+        }
+
+      }
+    }
+    
+    // checking for full rows
+    old_grid = grid;
+    grid = [];
+    new_rows = [];
+    
+    for (let y = 0; y < h; y++) {
+
+      full = true;
+      for (let x = 0; x < w; x++) {
+        if (old_grid[y][x] == 0) {
+          full = false;
+          break;
+        }
+      }
+      if (full) {
+        
+        new_rows.push([]);
+        for (let x = 0; x < w; x++) {
+          new_rows[new_rows.length - 1][x] = 0;
+        }
+      } else {
+        
+        grid.push(old_grid[y]);
+      }
+
+    }
+    grid = new_rows.concat(grid);
+
+
+    /*new_rows = []
+    for (let i = 0; i < rows_to_add; i++) {
+      new_rows[i] = []
+      for (let x = 0; x < w; x++) {
+        new_rows[i][x] = 0;
+      }
+    }
+    print(grid)
+    grid = new_rows.concat(grid)
+    print(grid)*/
+    
+
+
+    spawn_piece(queue[queue.length - 1]);
+    queue.pop();
+    return true;
+  }
+  return false;
 }
 
 function validate_dropping_piece () {
@@ -386,12 +459,18 @@ function validate_dropping_piece () {
       break;
   }
 
-  // checking if spots are empty
+
   for (let i = 0; i < cells_to_change.length; i++) {
-    if (grid[dropping_piece.y + cells_to_change[i][1]][dropping_piece.x + cells_to_change[i][0]] >= 1) {
+    // checkin for wall collision
+    if (dropping_piece.x + cells_to_change[i][0] >= 10 || dropping_piece.x + cells_to_change[i][0] < 0) {
       return false;
     }
-    if (dropping_piece.x + cells_to_change[i][0] >= 10 || dropping_piece.x + cells_to_change[i][0] < 0) {
+    // checkin for floor collision
+    if (dropping_piece.y + cells_to_change[i][1] > 21) {
+      return false;
+    }
+    // checking if spots are empty
+    if (grid[dropping_piece.y + cells_to_change[i][1]][dropping_piece.x + cells_to_change[i][0]] >= 1) {
       return false;
     }
   }
@@ -413,18 +492,21 @@ function validate_dropping_piece () {
 
 
 function keyPressed () {
-  print (keyCode)
+  //print (keyCode)
   switch (keyCode) {
-    case 37:
+    case 16:// shift
+      harddrop_piece();
+      break
+    case 37:// <-
       shift_piece("left");
       break;
-    case 38:
+    case 38:// ^
       rotate_piece("right");
       break;
-    case 39:
+    case 39: // ->
       shift_piece("right");
       break;
-    case 40:
+    case 40:// v
       drop_piece();
       break;
     default:
