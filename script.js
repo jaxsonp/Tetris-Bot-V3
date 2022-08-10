@@ -14,6 +14,7 @@ const w = 10;
 const h = 22;
 const scl = 30;
 const autodrop_piece = true;
+const player_control = false;
 
 //temp
 const drop_speed = 20;
@@ -48,13 +49,17 @@ let dropping_piece = {
 };
 
 
-let grid = []
-let queue = []
+let grid = [];
+let queue = [];
 let t = 0;
 let held_piece = 0;
 let game_over = false;
 let lines_cleared = 0;
 let score = 0;
+
+
+// ai stuff
+let input_sequences = [];
 
 
 
@@ -69,7 +74,7 @@ function setup() {
       grid[y][x] = 0
     }
   }
-  
+
   // initializing queue
   while (queue.length < 7) {
     new_piece = floor(random(1, 8))
@@ -84,7 +89,49 @@ function setup() {
     }
   }
 
+
+  // spawning first piece
   spawn_piece(queue.pop());
+
+
+
+  //generating input sequences
+
+  let spin_combos = [];
+  for (let i = 0; i < 4; i++) {
+    let seq = [];
+    for (let j = 0; j < i; j++) {
+      seq.push('spin');
+    }
+    spin_combos.push(seq);
+  }
+
+  let shift_combos = [[]];
+  for (let i = 1; i <= 5; i++) {
+    let seq = [];
+    for (let j = 0; j < i; j++) {
+      seq.push('left');
+    }
+    shift_combos.push(seq);
+    seq = [];
+    for (let j = 0; j < i; j++) {
+      seq.push('right');
+    }
+    shift_combos.push(seq);
+  }
+
+  for (let i = 0; i < spin_combos.length; i++) {
+    for (let j = 0; j < shift_combos.length; j++) {
+
+      if (spin_combos[i].length % 2 == 0 && j == 4) {// optimizing
+        continue;
+      }
+      input_sequences.push(spin_combos[i].concat(shift_combos[j]));
+      input_sequences.push(["hold"].concat(spin_combos[i], shift_combos[j]));
+    } 
+  }
+  print(input_sequences)
+  
 }
 
 function draw() {
@@ -114,6 +161,11 @@ function draw() {
 
 
   validate_dropping_piece()
+
+  // ai stuff
+  if ()
+    inputs = analyze_inputs();
+    
 
 
   // drawing
@@ -219,6 +271,91 @@ function draw() {
 
   t += 1;
 }
+
+
+
+
+
+
+
+
+
+
+function analyze_inputs () {
+  // copying game state
+  let og_grid = [];
+  for (let y = 0; y < grid.length; y++) {
+    og_grid[y] = [];
+    for (let x = 0; x < grid[y].length; x++) {
+      og_grid[y][x] = grid[y][x];
+    }
+  }
+  let og_dropping_piece = dropping_piece;
+  let og_queue = [];
+  for (i = 0; i < queue.length; i++) {
+    og_queue[i] = queue[i];
+  }
+
+  for (let i = 1; i < input_sequences.length; i++) {
+
+    let seq = input_sequences[i];
+    print("Executing seq #" + i + ": " + String(seq))
+    for (let j = 0; j < seq.length; j++) {
+      //print("instruction " + String(j))
+      switch (seq[j]) {
+        case "left":
+          //print("shifting left");
+          shift_piece('left');
+          break;
+        case "right":
+          //print("shifting right");
+          shift_piece('right');
+          break;
+        case "spin":
+          //print("rotating");
+          rotate_piece();
+          break;
+        case "hold":
+          //print("holding");
+          hold();
+          break;
+        default:
+          print("!!! Unrecognized instruction");
+          break;
+      }
+    }
+    //print("harddropping");
+    harddrop_piece();
+    print("Done executing")
+
+    // score grid here <<<<<<<<<<<<
+  
+    //print(queue);
+    // restoring og game state
+    grid = [];
+    for (let y = 0; y < og_grid.length; y++) {
+      grid[y] = [];
+      for (let x = 0; x < og_grid[y].length; x++) {
+        grid[y][x] = og_grid[y][x];
+      }
+    }
+    dropping_piece = og_dropping_piece;
+    queue = []
+    for (let j = 0; j < og_queue.length; j++) {
+      queue[j] = og_queue[j];
+    }
+    
+  }
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -613,15 +750,17 @@ function hold () {
 
 
 function keyPressed () {
-  //print (keyCode)
-  if (!game_over) {
+  print (keyCode)
+  if (!game_over && player_control) {
     switch (keyCode) {
       case 16:// shift
         hold();
-        break
+        break;
+      case 27:
+        game_over = true;
       case 32:// space
         harddrop_piece();
-        break
+        break;
       case 37:// <-
         shift_piece("left");
         break;
